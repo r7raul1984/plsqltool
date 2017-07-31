@@ -1,0 +1,8 @@
+create table #if ($strutil.isNotBlank($t.schema))$t.schema.toUpperCase().#else#end$t.name.toUpperCase()
+(
+#foreach ($f in $t.getFields())
+#set($vstep=$foreach.index + 1)
+  $strutil.rightPad($f.name,30," ")$f.type#if($vstep!=$t.getFields().size()),#end
+
+#end
+)

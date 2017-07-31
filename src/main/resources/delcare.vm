@@ -1,0 +1,5 @@
+ CREATE OR REPLACE PACKAGE $delcaration.packageName IS
+#foreach ($pn in $delcaration.procedureNames)
+    PROCEDURE $pn(p_date #[[DATE]]#);
+#end
+ END $delcaration.packageName;

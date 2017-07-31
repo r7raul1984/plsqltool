@@ -1,0 +1,6 @@
+      * Change History:
+      * Date           Programmer         Reason
+      * ------------   ----------------   -----------------------------
+      #foreach ($i in $p.changeHistory)
+* $i.date     $i.programmer            $i.reason
+      #end

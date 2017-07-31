@@ -1,0 +1,22 @@
+/*create by id $pb.id*/
+CREATE OR REPLACE PACKAGE BODY $pb.packageBodyName IS
+
+   /****************************************************************
+   * Pro Name:     $pb.packageBodyName.toUpperCase()
+   * Date:         $pb.date
+   * Programmer:   $pb.programmer
+   * Overview:     $pb.overview
+   *
+   * Change History:
+   * Date           Programmer         Reason
+   * ------------   ----------------   -----------------------------
+#foreach ($i in $pb.changeHistory)
+   * $i.date     $i.programmer            $i.reason
+#end
+   *****************************************************************/
+
+   -- 常量定义
+   c_package_name CONSTANT VARCHAR2(100) := '$pb.packageBodyName.toUpperCase()';
+
+#parse("procedure.vm")
+END  $pb.packageBodyName;

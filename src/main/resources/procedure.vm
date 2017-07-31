@@ -1,0 +1,102 @@
+#foreach ($p in $procedures)
+PROCEDURE $p.procedureName#[[(p_date DATE)]]# IS
+
+      /****************************************************************
+      * Pro Name:     $p.packageBodyName.toUpperCase().$p.procedureName.toUpperCase()
+      * Date:         $p.date
+      * Programmer:   $p.programmer
+      * Overview:     $p.overview
+      *
+#parse("changehistory.vm")
+*****************************************************************/
+
+      -- 公有变量定义
+#foreach ($v in $p.getVars())
+      $strutil.rightPad($v.name,16," ") #if($strutil.isNotBlank($v.type))$v.type#end#if ($strutil.isNotBlank($v.value)) := #else#end$v.value;
+#end
+   BEGIN
+
+#foreach ($v in $p.getVars())
+#set($vstep=$foreach.index + 1)
+#if($vstep==1)
+      -- 初始化参数
+#end
+#if($v.needInit())
+      $v.name := $v.initLogic;
+#else
+#end
+#end
+
+
+      -- 初始化日志参数
+      v_log_params := pkg_log.f_yhd_init_param_log(upper(v_sp_name));
+
+      -- SP开始执行
+      v_log_params.log_msg := ' 开始执行，实现功能：' || to_char(v_date, 'yyyymmdd') || ' 逻辑处理！';
+      v_log_params.step_id := v_log_params.step_id + 1;
+      pkg_log.p_yhd_start_log(v_log_params);
+
+      -- 清空临时表数据
+#foreach ($v in $p.getTmpTableVars())
+      pkg_etl.truncate($v.name);
+#end
+
+      -- 记录日志
+      v_log_params.log_msg  := v_sp_name || '清空临时表'#foreach ($v in $p.getTmpTableVars()) || $v.name#end;
+      v_log_params.step_id  := v_log_params.step_id + 1;
+      v_log_params.dml_type := pkg_log.c_dml_dynamic;
+      v_log_params.del_rows := SQL%ROWCOUNT;
+      pkg_log.p_yhd_step_log(v_log_params);
+      COMMIT;
+
+#foreach ($s in $p.getSteps())
+#set($step=$foreach.index + 1)
+#if($s.isEnable())
+#if($s.getType()==1)
+#set($comment='从'+$s.getSourceTablesStr()+'向'+$s.getTargetTable().toUpperCase()+'插入'+$s.comment)
+#elseif($s.getType()==2)
+#set($comment='从'+$s.getSourceTablesStr()+'向'+$s.getTargetTable().toUpperCase()+'更新'+$s.comment)
+#elseif($s.getType()==3)
+#set($comment='删除目标表'+$s.getTargetTable().toUpperCase()+$s.comment)
+#end
+
+      -- Step$step、$comment
+      $s.sql
+      -- 记录日志
+      v_log_params.log_msg  := '$comment';
+      v_log_params.step_id  := v_log_params.step_id + 1;
+#if($s.getType()==1)
+      v_log_params.dml_type := pkg_log.c_dml_ins;
+      v_log_params.ins_rows := SQL%ROWCOUNT;
+#elseif($s.getType()==2)
+      v_log_params.dml_type := pkg_log.c_dml_upd;
+      v_log_params.upd_rows := SQL%ROWCOUNT;
+#elseif($s.getType()==3)
+      v_log_params.dml_type := pkg_log.c_dml_del;
+      v_log_params.del_rows := SQL%ROWCOUNT;
+#end
+      pkg_log.p_yhd_step_log(v_log_params);
+#if($s.getType()==1)
+      COMMIT;
+#end
+      #end
+#end
+
+      -- 程序运行完成，写入日志信息
+      v_log_params.log_msg := v_sp_name || ' 执行成功！';
+      v_log_params.step_id := v_log_params.step_id + 1;
+      pkg_log.p_yhd_end_log(v_log_params);
+
+      COMMIT;
+
+   EXCEPTION
+      WHEN OTHERS THEN
+         v_log_params.log_msg    := v_sp_name || ' 程序出现异常, ' ||
+                                    substr(SQLERRM, 1, 1000);
+         v_log_params.error_code := SQLCODE;
+         v_log_params.step_id    := v_log_params.step_id + 1;
+         pkg_log.p_yhd_except_log(v_log_params);
+         ROLLBACK;
+
+   END $p.procedureName;
+#end
