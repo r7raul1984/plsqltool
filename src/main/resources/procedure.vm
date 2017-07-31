@@ -76,7 +76,7 @@ PROCEDURE $p.procedureName#[[(p_date DATE)]]# IS
       v_log_params.del_rows := SQL%ROWCOUNT;
 #end
       pkg_log.p_yhd_step_log(v_log_params);
-#if($s.getType()==1)
+#if($s.getType()==1||$s.getType()==2)
       COMMIT;
 #end
       #end
