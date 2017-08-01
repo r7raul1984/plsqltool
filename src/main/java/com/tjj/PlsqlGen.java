@@ -18,6 +18,7 @@ import net.sf.jsqlparser.JSQLParserException;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -38,7 +39,7 @@ public class PlsqlGen {
     MetaMaker mm = injector.getInstance(MetaService.class);
     if (args.length < 2) {
       System.out.println("ddl: make create table ddl script");
-      System.out.println("delcare: make plsql delcare script");
+      System.out.println("declcare: make plsql declcare script");
       System.out.println("plsql: make plsql script");
       System.out.println("source: find all source table for procedure");
       return;
@@ -71,7 +72,9 @@ public class PlsqlGen {
         }
         System.out
             .println(p.getPackageBodyName() + "." + p.getProcedureName() + ":");
-        for (String rs : result) {
+        List<String> result1 = Lists.newArrayList(Sets.newHashSet(result));
+        Collections.sort(result1);
+        for (String rs : result1) {
           System.out .println(rs);
         }
         result = Sets.newHashSet();
