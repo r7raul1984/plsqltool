@@ -5,6 +5,7 @@ import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
 import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.operators.relational.*;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Table;
@@ -23,6 +24,13 @@ public class Step {
   public static final int INSERT = 1;
   private static final int UPDATE = 2;
   private static final int DELETE = 3;
+  public static final String COMB_TYPE_ID = "comb_type_id";
+  @Transient
+  private static List<String> combTypeTbls = Lists.newArrayList();
+
+  static{
+    combTypeTbls.add("bic.cust_crm_info_d");
+  }
 
   @Id
   @GeneratedValue(strategy = GenerationType.AUTO)
@@ -59,18 +67,22 @@ public class Step {
   }
 
   private void collectTableName(Table table, PlainSelect plainSelect, List<String> sourceTables) {
+
+
     String tblName = table.getName();
     String schemaName = table.getSchemaName() == null ? "" : table.getSchemaName() + ".";
     String tblNameWithSchema = schemaName + tblName;
-    if ("bic.cust_crm_info_d".equalsIgnoreCase(tblNameWithSchema)) {
-      List<String> combTypeIds = Lists.newArrayList();
-      findCombTypeId(plainSelect.getWhere(), combTypeIds);
-      for (String combTypeId : combTypeIds) {
-        sourceTables.add(tblNameWithSchema + "_" + combTypeId);
+    for (String combTypeTbl : combTypeTbls) {
+      if (combTypeTbl.equalsIgnoreCase(tblNameWithSchema)) {
+        List<String> combTypeIds = Lists.newArrayList();
+        findCombTypeId(plainSelect.getWhere(), combTypeIds);
+        for (String combTypeId : combTypeIds) {
+          sourceTables.add(tblNameWithSchema + "_" + combTypeId);
+        }
+        return;
       }
-    } else {
-      sourceTables.add(tblNameWithSchema);
     }
+    sourceTables.add(tblNameWithSchema);
   }
 
   private void extractSourceTable(final List<String> sourceTables, SelectBody selectBody) {
@@ -161,30 +173,55 @@ public class Step {
   private void findCombTypeId(Expression where, final List<String> combTypeIds) {
     where.accept(new ExpressionVisitorAdapter() {
       @Override
-      public void visit(InExpression expr) {
+      public void visit(final InExpression expr) {
         super.visit(expr);
-        if(expr.getLeftExpression().toString().contains("comb_type_id")||expr.getLeftExpression().toString().contains("COMB_TYPE_ID")){
-          ItemsList itemsList = expr.getRightItemsList();
-          itemsList.accept(new ItemsListVisitorAdapter() {
-            @Override public void visit(ExpressionList expressionList) {
-              for (Expression expression: expressionList.getExpressions()) {
-                expression.accept(new ExpressionVisitorAdapter(){
-                  @Override
-                  public void visit(LongValue value) {
-                    combTypeIds.add(value.toString());
+        expr.getLeftExpression().accept(new ExpressionVisitorAdapter(){
+          @Override
+          public void visit(net.sf.jsqlparser.schema.Column column) {
+            if(column.getColumnName().equalsIgnoreCase(COMB_TYPE_ID)){
+              ItemsList itemsList = expr.getRightItemsList();
+              itemsList.accept(new ItemsListVisitorAdapter(){
+                @Override public void visit(ExpressionList expressionList) {
+                  for (Expression expression: expressionList.getExpressions()) {
+                    expression.accept(new ExpressionVisitorAdapter(){
+                      @Override
+                      public void visit(LongValue value) {
+                        combTypeIds.add(value.getStringValue());
+                      }
+                      @Override
+                      public void visit(StringValue value) {
+                        combTypeIds.add(value.getValue());
+                      }
+                    });
                   }
-                });
-              }
+                }
+              });
             }
-          });
-        }
+          }
+        });
       }
-    });
-
-    where.accept(new ExpressionVisitorAdapter() {
       @Override
-      public void visit(EqualsTo expr) {
+      public void visit(final EqualsTo expr) {
         super.visit(expr);
+        expr.getLeftExpression().accept(new ExpressionVisitorAdapter(){
+          @Override
+          public void visit(net.sf.jsqlparser.schema.Column column) {
+            if(column.getColumnName().equalsIgnoreCase(COMB_TYPE_ID)){
+              expr.getRightExpression().accept(new ExpressionVisitorAdapter(){
+                @Override
+                public void visit(LongValue value) {
+                  combTypeIds.add(value.getStringValue());
+                }
+                @Override
+                public void visit(StringValue value) {
+                  combTypeIds.add(value.getValue());
+
+                }
+
+              });
+            }
+          }
+        });
       }
     });
   }
