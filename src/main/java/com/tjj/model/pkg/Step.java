@@ -57,6 +57,22 @@ public class Step {
     }
     return targetTable;
   }
+
+  private void collectTableName(Table table, PlainSelect plainSelect, List<String> sourceTables) {
+    String tblName = table.getName();
+    String schemaName = table.getSchemaName() == null ? "" : table.getSchemaName() + ".";
+    String tblNameWithSchema = schemaName + tblName;
+    if ("bic.cust_crm_info_d".equalsIgnoreCase(tblNameWithSchema)) {
+      List<String> combTypeIds = Lists.newArrayList();
+      findCombTypeId(plainSelect.getWhere(), combTypeIds);
+      for (String combTypeId : combTypeIds) {
+        sourceTables.add(tblNameWithSchema + "_" + combTypeId);
+      }
+    } else {
+      sourceTables.add(tblNameWithSchema);
+    }
+  }
+
   private void extractSourceTable(final List<String> sourceTables, SelectBody selectBody) {
     selectBody.accept(new SelectVisitorAdapter(){
 
@@ -73,21 +89,8 @@ public class Step {
         plainSelect.getFromItem().accept(new FromItemVisitorAdapter(){
           @Override
           public void visit(Table table) {
-            String tblName = table.getName();
-            String schemaName =
-                table.getSchemaName() == null ? "" : table.getSchemaName() + ".";
-            String tblNameWithSchema = schemaName + tblName;
-            if ("bic.cust_crm_info_d".equalsIgnoreCase(tblNameWithSchema)) {
-              List<String> combTypeIds = Lists.newArrayList();
-              findCombTypeId(plainSelect.getWhere(), combTypeIds);
-              for (String combTypeId : combTypeIds) {
-                sourceTables.add(tblNameWithSchema + "_" + combTypeId);
-              }
-            } else {
-              sourceTables.add(tblNameWithSchema);
-            }
+            collectTableName(table, plainSelect, sourceTables);
           }
-
           @Override
           public void visit(SubSelect subSelect) {
             extractSourceTable(sourceTables,subSelect.getSelectBody());
@@ -103,19 +106,7 @@ public class Step {
           join.getRightItem().accept(new FromItemVisitorAdapter() {
             @Override
             public void visit(Table table) {
-              String tblName = table.getName();
-              String schemaName =
-                  table.getSchemaName() == null ? "" : table.getSchemaName() + ".";
-              String tblNameWithSchema = schemaName + tblName;
-              if ("bic.cust_crm_info_d".equalsIgnoreCase(tblNameWithSchema)) {
-                List<String> combTypeIds = Lists.newArrayList();
-                findCombTypeId(plainSelect.getWhere(), combTypeIds);
-                for (String combTypeId : combTypeIds) {
-                  sourceTables.add(tblNameWithSchema + "_" + combTypeId);
-                }
-              } else {
-                sourceTables.add(tblNameWithSchema);
-              }
+              collectTableName(table, plainSelect, sourceTables);
             }
 
             @Override
@@ -139,7 +130,6 @@ public class Step {
         SelectBody selectBody = insert.getSelect().getSelectBody();
         extractSourceTable(sourceTables, selectBody);
       }
-
       @Override
       public void visit(Delete delete) {
 
