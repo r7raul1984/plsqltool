@@ -70,7 +70,11 @@ public class PlsqlGen {
           result.addAll(step.getSourceTables());
         }
         System.out
-            .println(p.getPackageBodyName() + "." + p.getProcedureName() + ":" + result.toString());
+            .println(p.getPackageBodyName() + "." + p.getProcedureName() + ":");
+        for (String rs : result) {
+          System.out .println(rs);
+        }
+        result = Sets.newHashSet();
       }
     }
 
