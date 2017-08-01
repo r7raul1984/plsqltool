@@ -1,6 +1,11 @@
 package com.tjj.model.pkg;
 
+import com.google.common.collect.Lists;
 import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.operators.relational.*;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
@@ -102,10 +107,22 @@ public class Step {
       extractSourceTableFromSB(sourceTables, subSelect.getSelectBody());
     } else {
       Table table = (Table) fromItem;
-      if (table.getSchemaName() == null) {
-        sourceTables.add(table.getName());
+      String tblName = table.getName();
+      if("cust_crm_info_d".equalsIgnoreCase(tblName)){
+        List<String> combTypeIds = Lists.newArrayList();
+        findCombTypeId( ps.getWhere(),combTypeIds);
+        for (String combTypeId : combTypeIds) {
+          if (table.getSchemaName() == null) {
+            sourceTables.add(tblName+"_"+combTypeId);
+          } else {
+            sourceTables.add(table.getSchemaName() + "." + tblName+"_"+combTypeId);
+          }
+        }
+      }
+      else if (table.getSchemaName() == null) {
+        sourceTables.add(tblName);
       } else {
-        sourceTables.add(table.getSchemaName() + "." + table.getName());
+        sourceTables.add(table.getSchemaName() + "." + tblName);
       }
       List<Join> joins = ps.getJoins();
       if (joins == null) {
@@ -113,14 +130,46 @@ public class Step {
       }
       for (Join j : joins) {
         Table jTable = (Table) j.getRightItem();
+        String jtblName = jTable.getName();
         if (jTable.getSchemaName() == null) {
-          sourceTables.add(jTable.getName());
+          sourceTables.add(jtblName);
         } else {
-          sourceTables.add(jTable.getSchemaName() + "." + jTable.getName());
+          sourceTables.add(jTable.getSchemaName() + "." + jtblName);
         }
 
       }
     }
+  }
+
+  private void findCombTypeId(Expression where, final List<String> combTypeIds) {
+    where.accept(new ExpressionVisitorAdapter() {
+      @Override
+      public void visit(InExpression expr) {
+        super.visit(expr);
+        if(expr.getLeftExpression().toString().contains("comb_type_id")){
+          ItemsList itemsList = expr.getRightItemsList();
+          itemsList.accept(new ItemsListVisitorAdapter() {
+            @Override public void visit(ExpressionList expressionList) {
+              for (Expression expression: expressionList.getExpressions()) {
+                expression.accept(new ExpressionVisitorAdapter(){
+                  @Override
+                  public void visit(LongValue value) {
+                    combTypeIds.add(value.toString());
+                  }
+                });
+              }
+            }
+          });
+        }
+      }
+    });
+
+    where.accept(new ExpressionVisitorAdapter() {
+      @Override
+      public void visit(EqualsTo expr) {
+        super.visit(expr);
+      }
+    });
   }
 
   public String getSourceTablesStr() throws JSQLParserException {
