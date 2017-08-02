@@ -1,6 +1,6 @@
 package com.tjj.model.pkg;
 
-public class Field implements Comparable{
+public class Field {
   private String name;
   private String type;
 
@@ -38,10 +38,5 @@ public class Field implements Comparable{
 
   @Override public String toString() {
     return "Field{" + "name='" + name + '\'' + ", type='" + type + '\'' + '}';
-  }
-
-  @Override public int compareTo(Object o) {
-    Field f = (Field)o;
-    return this.name.compareTo(f.getName());
   }
 }

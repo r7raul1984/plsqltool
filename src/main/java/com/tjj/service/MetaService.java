@@ -111,7 +111,11 @@ public class MetaService implements MetaMaker {
       schema = "rpt";
       //fs.add(new Field("etl_time", "DATE"));
     }
-    Collections.sort(fs);
+    Collections.sort(fs, new Comparator<Field>() {
+      @Override public int compare(Field o1, Field o2) {
+        return o1.getName().compareTo(o2.getName());
+      }
+    });
     tbls.add(new PTable(schema, tblName, fs));
   }
 }
