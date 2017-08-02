@@ -11,7 +11,6 @@ import com.tjj.model.pkg.PTable;
 import com.tjj.model.pkg.Procedure;
 import com.tjj.model.pkg.Step;
 import net.sf.jsqlparser.JSQLParserException;
-import org.apache.commons.lang.StringUtils;
 
 import java.util.*;
 
@@ -47,44 +46,30 @@ public class MetaService implements MetaMaker {
   @Override public List<String> genTableDDLForP(Procedure p) throws JSQLParserException {
 
     List<Step> steps = p.getSteps();
-    List<Field> fields = Lists.newArrayList();
     List<PTable> tbls = Lists.newArrayList();
-    String currentTable = "";
+    Map<String, List<Field>> tblNameToFields = Maps.newHashMap();
     for (Step s : steps) {
       if (s.getType() != Step.INSERT) {
         continue;
       }
       String targetTbl = s.getTargetTable();
-      if (StringUtils.isNotBlank(currentTable) && !targetTbl.equalsIgnoreCase(currentTable)) {
-        genPTable(fields, tbls, currentTable);
-        fields = Lists.newArrayList();//reset
+      List<Field> fields;
+      if (tblNameToFields.containsKey(targetTbl)) {
+        fields = tblNameToFields.get(targetTbl);
+        genFields(s, fields);
+      } else {
+        fields = Lists.newArrayList();
+        genFields(s, fields);
       }
-      currentTable = targetTbl;
-      List<String> cols = s.getTargetTableFieldNames();
-      for (String col : cols) {
-        Set<String> suffixs = suffix2Type.keySet();
-        Field f = new Field(col, "UNKNOW");
-        for (String suffix : suffixs) {
-          if (col.endsWith(suffix)) {
-            f.setType(suffix2Type.get(suffix));
-            break;
-          }
-        }
-        //still unknow
-        if(f.getType().equals("UNKNOW")){
-          for (String suffix : suffixs) {
-            if (col.contains(suffix)) {
-              f.setType(suffix2Type.get(suffix));
-              break;
-            }
-          }
-        }
-        fields.add(f);
+      tblNameToFields.put(targetTbl, fields);
+    }
+    for (String tblName : tblNameToFields.keySet()) {
+      List<Field> fields = tblNameToFields.get(tblName);
+      if (!fields.isEmpty()) {
+        genPTable(fields, tbls, tblName);
       }
     }
-    if(!fields.isEmpty()){//last step tbl
-      genPTable(fields, tbls, currentTable);
-    }
+
     List<String> rs = Lists.newArrayList();
 
     for (PTable t : tbls) {
@@ -93,16 +78,40 @@ public class MetaService implements MetaMaker {
     return rs;
   }
 
-  private void genPTable(List<Field> fields, List<PTable> tbls, String currentTable) {
+  private void genFields(Step s, List<Field> fields) throws JSQLParserException {
+    List<String> cols = s.getTargetTableFieldNames();
+    for (String col : cols) {
+      Set<String> suffixs = suffix2Type.keySet();
+      Field f = new Field(col, "UNKNOW");
+      for (String suffix : suffixs) {
+        if (col.endsWith(suffix)) {
+          f.setType(suffix2Type.get(suffix));
+          break;
+        }
+      }
+      //still unknow
+      if(f.getType().equals("UNKNOW")){
+        for (String suffix : suffixs) {
+          if (col.contains(suffix)) {
+            f.setType(suffix2Type.get(suffix));
+            break;
+          }
+        }
+      }
+      fields.add(f);
+    }
+  }
+
+  private void genPTable(List<Field> fields, List<PTable> tbls, String tblName) {
     List<Field> fs = new ArrayList<>(Sets.newHashSet(fields));
     String schema;
-    if (currentTable.startsWith("TMP") || currentTable.startsWith("tmp")) {
+    if (tblName.startsWith("TMP") || tblName.startsWith("tmp")) {
       schema = "elt";
     } else {
       schema = "rpt";
       //fs.add(new Field("etl_time", "DATE"));
     }
     Collections.sort(fs);
-    tbls.add(new PTable(schema, currentTable, fs));
+    tbls.add(new PTable(schema, tblName, fs));
   }
 }
